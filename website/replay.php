@@ -255,6 +255,63 @@ $(function() {
     build_device_picker($("#device-picker"), /*include_remote*/true, on_device_selection);
 });
 
+// Unattended start: ?autostart=1[&camera=<part of the camera's name>]
+//
+// Picks the camera whose label contains the 'camera' text (case-insensitive),
+// or the first local camera if none is given, waits until that camera is
+// actually streaming, and then proceeds as if "Proceed" had been clicked.
+// If the camera never shows up, the setup screen is left showing.
+function autostart_replay() {
+  let params = new URLSearchParams(window.location.search);
+  let want = (params.get('camera') || '').toLowerCase();
+  let selectq = $("#device-picker");
+  let tries = 0;
+  let rebuilt = false;
+
+  function step() {
+    if (++tries > 120) {  // About a minute
+      console.log('autostart: gave up waiting for camera');
+      return;
+    }
+    let opts = selectq.find("option").filter(function() {
+      return $(this).val() && $(this).val() != 'remote' &&
+        (want == '' || $(this).text().toLowerCase().indexOf(want) >= 0);
+    });
+    let stream = document.getElementById("preview").srcObject;
+    let track = stream && stream.getVideoTracks()[0];
+
+    if (opts.length == 0) {
+      // Camera labels are blank until the browser has granted camera access,
+      // so once a stream is open, rebuild the list to pick up the labels.
+      if (track && !rebuilt) {
+        rebuilt = true;
+        build_device_picker(selectq, /*include_remote*/true, on_device_selection);
+      }
+    } else {
+      let id = opts.first().val();
+      if (selectq.val() != id) {
+        selectq.val(id);
+        on_device_selection(selectq);
+      } else if (track && track.readyState == 'live' &&
+                 track.getSettings().deviceId == id) {
+        console.log('autostart: proceeding with ' + opts.first().text());
+        $("#go-fullscreen").prop('checked', false);  // needs a user gesture
+        on_proceed();
+        return;
+      }
+    }
+    setTimeout(step, 500);
+  }
+  step();
+}
+
+$(function() {
+    let autostart = new URLSearchParams(window.location.search).get('autostart');
+    if (autostart && autostart != '0') {
+      autostart_replay();
+    }
+});
+
 // Posts a message to the page running in the interior iframe.
 function announce_to_interior(msg) {
   document.querySelector("#interior").contentWindow.postMessage(msg, '*');
