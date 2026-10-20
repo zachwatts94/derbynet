@@ -222,7 +222,8 @@ function on_device_selection(selectq) {
       { video: {
           deviceId: device_id,
           width: { ideal: $(window).width() },
-          height: { ideal: $(window).height() }
+          height: { ideal: $(window).height() },
+          frameRate: { ideal: 60 }
         }
       })
     .then(on_stream_ready);
