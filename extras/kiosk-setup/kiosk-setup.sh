@@ -50,6 +50,9 @@ cat > /usr/local/bin/derbynet-kiosk.sh <<'EOF'
 # Ordinary kiosk, or (when CAMERA is set in /etc/derbynet.conf) a replay kiosk.
 . /etc/derbynet.conf
 xset s off; xset -dpms; xset s noblank
+# Xfce's power manager turns DPMS back on at login unless told otherwise.
+xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/dpms-enabled \
+  -n -t bool -s false 2>/dev/null || true
 unclutter -idle 1 &
 until curl -k -s --connect-timeout 6 -L "$DERBYNET_SERVER/index.php" >/dev/null; do sleep 3; done
 
