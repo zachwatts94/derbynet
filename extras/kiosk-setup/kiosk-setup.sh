@@ -65,7 +65,30 @@ else
   URL="$DERBYNET_SERVER/kiosk.php?address=$ADDRESS"
 fi
 
+# Replay kiosks: find the video device whose name contains $CAMERA.
+camera_device() {
+  v4l2-ctl --list-devices 2>/dev/null | awk -v want="$(printf %s "$CAMERA" | tr A-Z a-z)" \
+    '/^[^\t]/ { match_hdr = (index(tolower($0), want) > 0) }
+     match_hdr && /\/dev\/video/ { print $1; exit }'
+}
+
+# Keep the camera at its full frame rate (many webcams quietly lower it in dim
+# light). Optionally also force a short exposure to reduce motion blur: set
+# CAMERA_EXPOSURE in /etc/derbynet.conf in units of 100 microseconds, e.g. 50
+# for 5 ms. Leave it unset to keep automatic exposure.
+tune_camera() {
+  [ -n "${CAMERA:-}" ] || return 0
+  DEV=$(camera_device)
+  [ -n "$DEV" ] || return 0
+  v4l2-ctl -d "$DEV" --set-ctrl=exposure_dynamic_framerate=0 2>/dev/null || true
+  if [ -n "${CAMERA_EXPOSURE:-}" ]; then
+    v4l2-ctl -d "$DEV" --set-ctrl=auto_exposure=1 \
+      --set-ctrl=exposure_time_absolute="$CAMERA_EXPOSURE" 2>/dev/null || true
+  fi
+}
+
 while true; do
+  tune_camera
   chromium --kiosk --password-store=basic --noerrdialogs --no-default-browser-check \
     --disable-session-crashed-bubble --disable-infobars \
     --ignore-certificate-errors $EXTRA \
