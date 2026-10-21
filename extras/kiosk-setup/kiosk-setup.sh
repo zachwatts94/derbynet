@@ -85,6 +85,13 @@ tune_camera() {
     v4l2-ctl -d "$DEV" --set-ctrl=auto_exposure=1 \
       --set-ctrl=exposure_time_absolute="$CAMERA_EXPOSURE" 2>/dev/null || true
   fi
+  # Optionally lock the focus so autofocus doesn't hunt on fast cars. Set
+  # CAMERA_FOCUS in /etc/derbynet.conf (the Rally accepts 0-255; find the right
+  # value by trying focus_absolute=N with v4l2-ctl while looking at the picture).
+  if [ -n "${CAMERA_FOCUS:-}" ]; then
+    v4l2-ctl -d "$DEV" --set-ctrl=focus_automatic_continuous=0 \
+      --set-ctrl=focus_absolute="$CAMERA_FOCUS" 2>/dev/null || true
+  fi
 }
 
 while true; do
