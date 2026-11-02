@@ -14,9 +14,16 @@ require_once('inc/path-info.inc');
 require_once('inc/photo-config.inc');
 
 class CardLicenseDocument extends PrintableRacerDocument {
-  // CR-80 card, landscape
-  const CARD_W = 3.375;
-  const CARD_H = 2.125;
+  // CR-80 card, landscape.  These are the page dimensions in Zebra's printer
+  // profile (241.5 x 153.6 points), so the print system never has to rescale the
+  // card.  (A true CR-80 is 3.370" x 2.125".)
+  const CARD_W = 3.3541667;
+  const CARD_H = 2.1333333;
+  // The printed image is a little smaller than the real card, and a card never
+  // sits in the printer perfectly, so the artwork is enlarged by this fraction
+  // about the card's center; the overhang is cut off, which keeps the colored
+  // background reaching all four edges instead of leaving thin white borders.
+  const OVERSCAN = 0.02;
   // Card printers can't register artwork perfectly; keep text inside this.
   const SAFE = 0.09;
 
@@ -143,11 +150,22 @@ class CardLicenseDocument extends PrintableRacerDocument {
   // The base class hands us the (0,0) origin of one page; if a back side was
   // requested, we claim a second page for it here.
   function DrawOneAt($x, $y, &$racer) {
-    $this->DrawFront($x, $y, $racer);
+    $this->DrawOverscanned($x, $y, function() use ($x, $y, &$racer) {
+      $this->DrawFront($x, $y, $racer);
+    });
     if ($this->get_option('two_sided')) {
       $xy = $this->layout->NextTopLeft();
-      $this->DrawBack($xy['x'], $xy['y'], $racer);
+      $this->DrawOverscanned($xy['x'], $xy['y'], function() use ($xy, &$racer) {
+        $this->DrawBack($xy['x'], $xy['y'], $racer);
+      });
     }
+  }
+
+  protected function DrawOverscanned($x, $y, $draw) {
+    $this->pdf->StartTransform();
+    $this->pdf->ScaleXY(100 * (1 + self::OVERSCAN), $x + self::CARD_W / 2, $y + self::CARD_H / 2);
+    $draw();
+    $this->pdf->StopTransform();
   }
 
   // ---- Helpers ----------------------------------------------------------
@@ -179,10 +197,12 @@ class CardLicenseDocument extends PrintableRacerDocument {
     $this->pdf->Text($x, $y, $text);
   }
 
-  // A small gray caption above a value, as on real licenses.
+  // A small caption above a value, as on real licenses.  Small text is pure
+  // black: the card printer prints pure black with its crisp black panel, while
+  // grays are mixed from the color panels and come out faint.
   protected function Caption($x, $y, $text) {
-    $this->SetTextColor(array(0x4a, 0x4a, 0x55));
-    $this->pdf->SetFont('Arial', '', 4.5);
+    $this->pdf->SetTextColor(0, 0, 0);
+    $this->pdf->SetFont('Arial', '', 4.8);
     $this->pdf->Text($x, $y, strtoupper($text));
   }
 
@@ -439,11 +459,15 @@ class CardLicenseDocument extends PrintableRacerDocument {
     $this->Caption($cx, $y + 1.70, 'Lic no');
     $this->Value($cx, $y + 1.80, $this->LicenseNumber($racer), $col_w);
 
-    // Fine print
-    $this->SetTextColor(array(0x2a, 0x2a, 0x35));
-    $this->pdf->SetFont('Arial', '', 4.2);
+    // Fine print, on a light strip so the background pattern doesn't interfere
+    $this->SetFillColor(array(0xff, 0xff, 0xff));
+    $this->pdf->SetAlpha(0.65);
+    $this->pdf->Rect($fx - 0.03, $y + 1.735, 2.06, 0.205, 'F');
+    $this->pdf->SetAlpha(1);
+    $this->pdf->SetTextColor(0, 0, 0);
+    $this->pdf->SetFont('Arial', '', 5.2);
     $this->pdf->SetXY($fx - 0.03, $y + 1.745);
-    $this->pdf->MultiCell(2.06, 0.075,
+    $this->pdf->MultiCell(2.06, 0.082,
                           'Authorized to operate one (1) pinewood vehicle at the '
                           .$this->get_option('pack_name').' Derby, subject to the Cub Scout Law.',
                           0, 'L');

@@ -17,12 +17,13 @@ function card_printer_name() {
 }
 
 // Per-job printer options for the Zebra driver.  A card is either front-only
-// (YMCKO) or front color / back black-and-white using the same ribbon.
+// (YMCKO) or full color on both sides.  (Two-sided color uses a full set of ribbon
+// panels for each side, so a 300-image ribbon makes about 150 two-sided cards.)
 function card_print_options($sides) {
   $options = array('PageSize=CR80', 'RibbonName=0YMCKO');
   if ($sides == 2) {
     $options[] = 'DualSidePrinting=1true';
-    $options[] = 'RibbonCombination=4FrontYmckoBackK';
+    $options[] = 'RibbonCombination=1FrontYmckoBackYmcko';
   } else {
     $options[] = 'DualSidePrinting=0false';
     $options[] = 'RibbonCombination=0FrontYmcko';
