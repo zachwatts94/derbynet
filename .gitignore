@@ -41,3 +41,7 @@ adapter-webrtc/
 .idea
 *.iml
 .DS_Store
+
+# Scouting America Brand Center logo: licensed for unit use only, never publish it
+website/print/docs/racer/license-card/logo.jpg
+website/print/docs/racer/license-card/logo-watermark.png
