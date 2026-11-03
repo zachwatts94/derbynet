@@ -83,6 +83,9 @@ class FaceDetector {
       $this->height = $height;
       $v = $this->detect_face1($smaller);
       imagedestroy($smaller);
+      if ($v === false) {
+        return false;
+      }
       return array('x' => ($v['x'] * $scale) >> 0,
                    'y' => ($v['y'] * $scale) >> 0,
                    'width' => ($v['width'] * $scale) >> 0,
