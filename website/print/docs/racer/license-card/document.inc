@@ -59,6 +59,9 @@ class CardLicenseDocument extends PrintableRacerDocument {
       'endorsements' => array('type' => 'string',
                               'desc' => 'Endorsements',
                               'default' => 'None'),
+      'show_lattice' => array('type' => 'bool',
+                              'desc' => 'Diamond crosshatch pattern in the background',
+                              'default' => true),
       'color_scheme' => array('type' => 'radio',
                               'desc' => 'Color Scheme',
                               'values' => array(array('value' => 'blue', 'desc' => 'Blue'),
@@ -242,6 +245,9 @@ class CardLicenseDocument extends PrintableRacerDocument {
     $this->pdf->LinearGradient($x - 0.05, $y - 0.05, self::CARD_W + 0.1, self::CARD_H + 0.1,
                                $s['tint'], $s['tint2'], array(0, 0, 1, 1));
 
+    if (!$this->get_option('show_lattice')) {
+      return;
+    }
     $this->SetDrawColor($s['lattice']);
     $this->pdf->SetLineWidth(0.012);
     $this->pdf->SetAlpha(0.40);

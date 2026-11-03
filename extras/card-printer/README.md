@@ -51,6 +51,8 @@ address outside the DHCP range).  If it changes:
   can go in `local/config-card.inc`, which returns an array of option => value.
   `weight_overrides` is `"Group=limit; Group=limit"` and matches the racer's
   group name, ignoring case.  The default sets `Outlaw=10 oz`.
+  `show_lattice` (default `true`) turns the diamond crosshatch pattern in the
+  card background on or off: `return array('show_lattice' => false);`
 
 ## The logo
 
