@@ -20,10 +20,10 @@ require_permission(ASSIGN_RACER_IMAGE_PERMISSION);
 <title>Print Licenses</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <?php require('inc/stylesheet.inc'); ?>
-<link rel="stylesheet" type="text/css" href="css/print-review.css"/>
+<link rel="stylesheet" type="text/css" href="css/print-review.css?v=<?php echo @filemtime('css/print-review.css') ?: time(); ?>"/>
 <script type="text/javascript" src="js/jquery.js"></script>
 <script type="text/javascript" src="js/ajax-setup.js"></script>
-<script type="text/javascript" src="js/print-review.js"></script>
+<script type="text/javascript" src="js/print-review.js?v=<?php echo @filemtime('js/print-review.js') ?: time(); ?>"></script>
 </head>
 <body>
 <?php make_banner('Print Licenses', 'checkin.php'); ?>

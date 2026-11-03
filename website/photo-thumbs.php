@@ -99,7 +99,7 @@ var g_crop_aspect = <?php echo json_encode(crop_aspect_for_repo($photo_repositor
 <?php } ?>
 </script>
 <script type="text/javascript" src="js/find-racer.js"></script>
-<script type="text/javascript" src="js/photo-thumbs.js"></script>
+<script type="text/javascript" src="js/photo-thumbs.js?v=<?php echo @filemtime('js/photo-thumbs.js') ?: time(); ?>"></script>
 </head>
 <body>
 <?php make_banner(($repo == 'head' ? 'Racer' : 'Car').' Photos',
