@@ -123,6 +123,8 @@ if (have_permission(ASSIGN_RACER_IMAGE_PERMISSION)) {
   } else {
     $need_spacer = make_link_button('Edit Racer Photos', 'photo-thumbs.php?repo=head', ASSIGN_RACER_IMAGE_PERMISSION, 'before_button') || $need_spacer;
   }
+  // License cards are made after check-in and photos, so the button goes here.
+  $need_spacer = make_link_button('Print Licenses', 'print-review.php', ASSIGN_RACER_IMAGE_PERMISSION, 'before_button') || $need_spacer;
 }
 
 make_spacer_if($need_spacer);
