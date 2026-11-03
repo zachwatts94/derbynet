@@ -8,6 +8,20 @@ class FaceDetector {
   // minute or more if not time-limited.
   private $max_time_allowed_sec = 6;
 
+  // Faces smaller than this fraction of the picture's shorter side are not
+  // looked for.  (Searching for tiny faces is where almost all the time goes,
+  // and a photo taken for a license has a big face.)
+  private $min_face_fraction = 0.12;
+
+  // How many overlapping matches a face needs before it is trusted outright.  A
+  // lone match is kept only as a fallback, in case nothing better turns up at a
+  // smaller size.
+  private $min_support = 2;
+
+  function set_time_limit_sec($seconds) {
+    $this->max_time_allowed_sec = $seconds;
+  }
+
   private $window_width;
   private $window_height;
   private $stages;
@@ -91,8 +105,15 @@ class FaceDetector {
     $stride = $this->width + 1;  // number of entries per row in $this->integral and $this->integral2
 
     $initial_scale = min($this->width/$this->window_width, $this->height/$this->window_height);
-    
-    for ($factor = $initial_scale; $factor >= 1.0; $factor /= $this->scale_factor) {
+
+    // Every window that passes at one scale is kept (the same face is usually
+    // found by several neighboring windows), rather than stopping at the first.
+    $hits = array();
+    $fallback = null;
+
+    $min_factor = max(1.0, $this->min_face_fraction * min($this->width, $this->height)
+                           / $this->window_width);
+    for ($factor = $initial_scale; $factor >= $min_factor; $factor /= $this->scale_factor) {
       if (time() - $start_time > $this->max_time_allowed_sec) {
         error_log('Time limit forces abandoning of scale factor loop');
         break;
@@ -174,14 +195,78 @@ class FaceDetector {
             }
           }
           if ($found) {
-            return array('x' => $horiz, 'y' => $vert, 'width' => $window_width, 'height' => $window_height);
+            $hits[] = array('x' => $horiz, 'y' => $vert, 'width' => $window_width, 'height' => $window_height);
           }
         }  // vert
       }  // horiz
+      // The largest scale at which a face has solid support is the one we use.
+      if (!empty($hits)) {
+        list($box, $support) = $this->best_detection($hits);
+        if ($support >= $this->min_support) {
+          return $box;
+        }
+        if ($fallback === null) {
+          $fallback = $box;
+        }
+        $hits = array();
+      }
     }  // factor
-    return false;
+    return $fallback === null ? false : $fallback;
   }
   
+  // Chooses one face from the windows that matched at a single scale.  Windows
+  // whose centers are close together are taken to be the same face, and each such
+  // group is averaged into one box.  The face supported by the most windows wins
+  // (isolated single matches are more likely to be mistakes), and among equals,
+  // the one nearest the middle of the picture.
+  private function best_detection($hits) {
+    $groups = array();
+    foreach ($hits as $h) {
+      $cx = $h['x'] + $h['width'] / 2;
+      $cy = $h['y'] + $h['height'] / 2;
+      $placed = false;
+      foreach ($groups as &$g) {
+        $gcx = $g['sx'] / $g['n'] + $g['sw'] / $g['n'] / 2;
+        $gcy = $g['sy'] / $g['n'] + $g['sh'] / $g['n'] / 2;
+        $gw = $g['sw'] / $g['n'];
+        if (abs($cx - $gcx) < 0.4 * $gw && abs($cy - $gcy) < 0.4 * $gw) {
+          $g['n']++;
+          $g['sx'] += $h['x'];
+          $g['sy'] += $h['y'];
+          $g['sw'] += $h['width'];
+          $g['sh'] += $h['height'];
+          $placed = true;
+          break;
+        }
+      }
+      unset($g);
+      if (!$placed) {
+        $groups[] = array('n' => 1, 'sx' => $h['x'], 'sy' => $h['y'],
+                          'sw' => $h['width'], 'sh' => $h['height']);
+      }
+    }
+
+    $mid_x = $this->width / 2;
+    $mid_y = $this->height / 2;
+    $best = null;
+    $best_key = null;
+    $best_n = 0;
+    foreach ($groups as $g) {
+      $box = array('x' => (int) round($g['sx'] / $g['n']),
+                   'y' => (int) round($g['sy'] / $g['n']),
+                   'width' => (int) round($g['sw'] / $g['n']),
+                   'height' => (int) round($g['sh'] / $g['n']));
+      $dist = hypot($box['x'] + $box['width'] / 2 - $mid_x, $box['y'] + $box['height'] / 2 - $mid_y);
+      $key = array(-$g['n'], $dist);
+      if ($best_key === null || $key < $best_key) {
+        $best_key = $key;
+        $best = $box;
+        $best_n = $g['n'];
+      }
+    }
+    return array($best, $best_n);
+  }
+
   // $src is the source image of dimensions $this->width by $this->height.
   // Allocates and populates $this->gray
   function ToGrayscale(&$src) {

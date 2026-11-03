@@ -12,6 +12,7 @@
 require_once('inc/partitions.inc');
 require_once('inc/path-info.inc');
 require_once('inc/photo-config.inc');
+require_once('inc/photo-aspect.inc');
 
 class CardLicenseDocument extends PrintableRacerDocument {
   // CR-80 card, landscape.  These are the page dimensions in Zebra's printer
@@ -39,7 +40,7 @@ class CardLicenseDocument extends PrintableRacerDocument {
                            'default' => true),
       'date_of_issue' => array('type' => 'string',
                                'desc' => 'Date of Issue',
-                               'default' => date('F j, Y')),
+                               'default' => self::Today()),
       'pack_name' => array('type' => 'string',
                            'desc' => 'Pack name',
                            'default' => 'Cub Scout Pack 525'),
@@ -104,6 +105,20 @@ class CardLicenseDocument extends PrintableRacerDocument {
 
     $name = $this->get_option('color_scheme');
     $this->scheme = isset(self::$schemes[$name]) ? self::$schemes[$name] : self::$schemes['blue'];
+  }
+
+  // Today's date in the card's own time zone.  (PHP's default time zone is
+  // normally UTC, which is already "tomorrow" every evening in US Central time.)
+  // Set 'timezone' in local/config-card.inc to change it.
+  protected static function Today() {
+    $local = self::LocalConfig();
+    $zone = isset($local['timezone']) ? $local['timezone'] : 'America/Chicago';
+    try {
+      $now = new DateTimeImmutable('now', new DateTimeZone($zone));
+    } catch (Exception $e) {
+      $now = new DateTimeImmutable('now');
+    }
+    return $now->format('F j, Y');
   }
 
   // Settings that belong to one event rather than to the code can be put in
@@ -185,6 +200,55 @@ class CardLicenseDocument extends PrintableRacerDocument {
     $w = $size[0] * $scale;
     $h = $size[1] * $scale;
     $this->pdf->Image($file, $x + ($box_w - $w) / 2, $y + ($box_h - $h) / 2, $w, $h);
+  }
+
+  // Draws a headshot so that it fills the box completely: a photo that isn't
+  // already the right shape (say, an uncropped webcam picture) is trimmed evenly
+  // from the sides or the top and bottom, rather than shrunk with empty bars.
+  // Photos that are already the right shape are placed as they are.
+  protected function CoverImage($file, $x, $y, $box_w, $box_h) {
+    $size = @getimagesize($file);
+    if (!$size || $size[0] <= 0 || $size[1] <= 0) {
+      $this->FitImage($file, $x, $y, $box_w, $box_h);
+      return;
+    }
+    $box_aspect = $box_w / $box_h;
+    $aspect = $size[0] / $size[1];
+    if (abs($aspect / $box_aspect - 1) < 0.02) {
+      $this->pdf->Image($file, $x, $y, $box_w, $box_h);
+      return;
+    }
+    if ($aspect > $box_aspect) {  // too wide: trim the sides
+      $src_h = $size[1];
+      $src_w = (int) round($src_h * $box_aspect);
+    } else {                      // too tall: trim the top and bottom
+      $src_w = $size[0];
+      $src_h = (int) round($src_w / $box_aspect);
+    }
+    $src_x = (int) round(($size[0] - $src_w) / 2);
+    $src_y = (int) round(($size[1] - $src_h) / 2);
+
+    $im = false;
+    switch ($size[2]) {
+    case IMAGETYPE_JPEG: $im = @imagecreatefromjpeg($file); break;
+    case IMAGETYPE_PNG: $im = @imagecreatefrompng($file); break;
+    case IMAGETYPE_GIF: $im = @imagecreatefromgif($file); break;
+    }
+    if (!$im) {
+      $this->FitImage($file, $x, $y, $box_w, $box_h);
+      return;
+    }
+    // About 600 dpi is plenty for a card printer's 300 dpi.
+    $out_w = min($src_w, (int) round($box_w * 600));
+    $out_h = (int) round($out_w / $box_aspect);
+    $out = imagecreatetruecolor($out_w, $out_h);
+    imagecopyresampled($out, $im, 0, 0, $src_x, $src_y, $out_w, $out_h, $src_w, $src_h);
+    $tmp = tempnam(sys_get_temp_dir(), 'cover-').'.jpg';
+    imagejpeg($out, $tmp, 92);
+    $this->pdf->Image($tmp, $x, $y, $box_w, $box_h);
+    @unlink($tmp);
+    imagedestroy($out);
+    imagedestroy($im);
   }
 
   // Writes text at a baseline position, shrinking the font until it fits.
@@ -315,7 +379,7 @@ class CardLicenseDocument extends PrintableRacerDocument {
     $py = $y + 0.54;
     if ($this->get_option('use_photo')) {
       if ($racer['imagefile']) {
-        $this->FitImage($racer['imagefile'], $px, $py, 0.84, 1.12);
+        $this->CoverImage($racer['imagefile'], $px, $py, 0.84, 0.84 / HEADSHOT_ASPECT);
       } else {
         $this->SetFillColor(array(0x9a, 0x9a, 0x9a));
         $this->pdf->Rect($px, $py, 0.84, 1.12, 'F');
@@ -372,7 +436,7 @@ class CardLicenseDocument extends PrintableRacerDocument {
     // Ghost photo, faded, like the security image on a real license
     if ($this->get_option('use_photo') && $racer['imagefile']) {
       $this->pdf->SetAlpha(0.32);
-      $this->FitImage($racer['imagefile'], $x + 2.72, $y + 0.54, 0.55, 0.73);
+      $this->CoverImage($racer['imagefile'], $x + 2.72, $y + 0.54, 0.55, 0.55 / HEADSHOT_ASPECT);
       $this->pdf->SetAlpha(1);
     }
 
@@ -426,8 +490,8 @@ class CardLicenseDocument extends PrintableRacerDocument {
     // Car photo in a white frame
     $fx = $x + 0.14;
     $fy = $y + 0.42;
-    $fw = 1.98;
     $fh = 1.24;
+    $fw = $fh * CAR_PHOTO_ASPECT;
     $this->SetFillColor(array(0xff, 0xff, 0xff));
     $this->pdf->Rect($fx - 0.03, $fy - 0.03, $fw + 0.06, $fh + 0.06, 'F');
     if ($racer['carphoto']) {

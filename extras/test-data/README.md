@@ -42,3 +42,15 @@ sudo rm -f /var/lib/derbynet/<year>/<database>/racers/testroster_* \
 The restore also removes any `PrintJobs` log rows (cards sent), since that table
 lives in the same database.  Restoring replaces everything changed since the
 backup, so do it before the real roster goes in.
+
+## Auto-crop tests
+
+* `test-photo-helpers.php [site-dir]` checks the crop geometry (always inside the
+  picture, always the exact shape) and that phone-photo rotation tags 1-8 come out
+  upright.  Fast; run it after changing `inc/photo-autocrop.inc`.
+* `test-autocrop.php <old|new> <headshots-dir> [scenes] [site-dir] [flat|textured|raw]`
+  builds webcam-style scenes from the sample headshots in `testing/data/headshots`
+  and measures how often the face is found and whole-head-in-crop.  Slow (several
+  seconds per scene).  Set `DEBUG_DIR` to save pictures with the detected face (red)
+  and the crop (green) drawn on them: its "wrong place" counts are only a rough
+  guide, so look at those pictures.

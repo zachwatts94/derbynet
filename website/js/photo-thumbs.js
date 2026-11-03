@@ -177,10 +177,24 @@ function on_work_image_loaded(img) {
 
   g_crop = null;
 
-  $('#work_image img').Jcrop({
+  var options = {
 	onSelect: updateCrop,
 	onChange: updateCrop
-  });
+  };
+  // Hold the box to the shape the photo is used in (g_crop_aspect, set by the
+  // page), and start with a box of that shape already drawn so that "Crop" does
+  // something sensible even if the user doesn't touch it.
+  if (typeof g_crop_aspect === 'number' && g_crop_aspect > 0) {
+	var width = $(img).width();
+	var height = $(img).height();
+	var box_w = Math.min(width, height * g_crop_aspect) * 0.85;
+	var box_h = box_w / g_crop_aspect;
+	var left = (width - box_w) / 2;
+	var top = (height - box_h) / 2;
+	options.aspectRatio = g_crop_aspect;
+	options.setSelect = [left, top, left + box_w, top + box_h];
+  }
+  $('#work_image img').Jcrop(options);
 }
 
 function showPhotoCropModal(img, repo_name, basename, time) {

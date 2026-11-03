@@ -54,6 +54,27 @@ address outside the DHCP range).  If it changes:
   `show_lattice` (default `true`) turns the diamond crosshatch pattern in the
   card background on or off: `return array('show_lattice' => false);`
 
+## Photos and cropping
+
+* **Shapes:** headshots are cropped 3:4 (tall) and car photos 8:5 (wide); both are
+  defined in `website/inc/photo-aspect.inc`, and the card's photo box and car frame
+  are built from them.  The manual crop screen (Racer Photos / Car Photos, click a
+  photo) holds its box to that shape while you drag, and starts with a box already
+  drawn.
+* **Auto-crop** (on by default for headshots at check-in) looks for a face
+  (`inc/facedetection.inc`, searched by `find_headshot_face` in
+  `inc/photo-autocrop.inc`), frames it with room for hair and shoulders, and saves
+  a separate cropped copy; the original is kept.  If no face is found, the card
+  fills the photo box from the middle of the picture, and the Print Licenses page
+  warns "not cropped" so someone can frame it by hand with "Fix headshot".
+* **Phone photos** that carry a rotation tag are turned upright when uploaded.
+* **Issue date:** the card uses US Central time (`timezone` in
+  `local/config-card.inc` to change it), not PHP's default of UTC.
+* Auto-crop is a pure-PHP face finder and is slow on a small server; it works
+  best when the face is a good part of the picture, as at a headshot station.  The
+  test scripts in `extras/test-data/` (`test-autocrop.php`,
+  `test-photo-helpers.php`) measure it.
+
 ## The logo
 
 The Cub Scouts logo watermark is **not in this repository** on purpose.  The

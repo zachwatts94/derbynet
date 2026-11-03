@@ -20,6 +20,7 @@
 require_once('inc/barcode.inc');
 require_once('inc/events.inc');
 require_once('inc/photo-config.inc');
+require_once('inc/photo-autocrop.inc');
 
 function widen_and_clip(&$v, &$width, $scale, $max) {
   $original_width = $width;
@@ -87,6 +88,12 @@ if (!have_permission(PHOTO_UPLOAD_PERMISSION)) {
     if (move_uploaded_file($photo['tmp_name'], $photo_dir.DIRECTORY_SEPARATOR.$target_name)) {
       $success = true;
 
+      // A phone photo may be stored on its side with a tag saying how to turn it
+      // upright; do the turning now, so cropping and printing see it upright.
+      if (normalize_image_orientation($photo_dir.DIRECTORY_SEPARATOR.$target_name)) {
+        json_out('rotated', true);
+      }
+
       // For a just-uploaded file, the only file path that will properly exist
       // is the original.  If/when the image gets cropped, either in this action
       // or a subsequent one, we'll update the path in the database to point to
@@ -100,6 +107,7 @@ if (!have_permission(PHOTO_UPLOAD_PERMISSION)) {
 
           $original = open_image($source_file_path, $image_type);
 
+          $face = false;
           if (isset($_SERVER['DERBYNET_FACEDETECT']) && is_executable($_SERVER['DERBYNET_FACEDETECT'])) {
             $output = false;
             $coords = @exec($_SERVER['DERBYNET_FACEDETECT'].' \''.$source_file_path.'\'', $output);
@@ -114,22 +122,13 @@ if (!have_permission(PHOTO_UPLOAD_PERMISSION)) {
               }
             }
           } else {
-            require_once('inc/facedetection.inc');
-            $detector = new FaceDetector();
-            $face = $detector->detect_face($original);
+            $face = find_headshot_face($original);
           }
 
-          if ($face) {
-            $x = round($face['x']);
-            $y = round($face['y']);
-            $w = round($face['width']);
-            // Relying on face detection returning a square, with width = height
-
-            // The marked face is a little tight for cropping -- widen by 10%,
-            // then adjust to 4:3 aspect
-            widen_and_clip($x, $w, 1.10, imagesx($original));
-            $h = $w;
-            widen_and_clip($y, $h, 4 / 3, imagesy($original));
+          if ($face && $face['width'] > 0) {
+            // Frame the face with room for hair and shoulders, in the shape that
+            // fits the license card (see inc/photo-autocrop.inc).
+            list($x, $y, $w, $h) = headshot_crop_box($face, imagesx($original), imagesy($original));
 
             if ($w != 0 && $h != 0) {
               $cropped_path = $photo_repository->lookup(RENDER_CROPPED)->target_file_path($target_name);

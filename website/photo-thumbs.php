@@ -9,6 +9,7 @@ require_once('inc/partitions.inc');
 require_permission(ASSIGN_RACER_IMAGE_PERMISSION);
 
 require_once('inc/photo-config.inc');
+require_once('inc/photo-aspect.inc');
 
 $repo = isset($_GET['repo']) ? $_GET['repo'] : 'head';
 $photo_repository = photo_repository($repo);
@@ -91,6 +92,8 @@ function photo_crop_expression($basename) {
 <script type="text/javascript" src="js/dropzone.min.js"></script>
 <script type="text/javascript">
 var g_photo_repo_name = '<?php echo $photo_repository->name(); ?>';
+// Shape (width / height) the crop box is held to on this page.
+var g_crop_aspect = <?php echo json_encode(crop_aspect_for_repo($photo_repository->name())); ?>;
 <?php if (isset($_GET['racerid']) && is_numeric($_GET['racerid'])) { ?>
   $(function() { scroll_to_racerid(<?php echo $_GET['racerid']; ?>); });
 <?php } ?>
@@ -250,7 +253,8 @@ if (empty($allfiles)) {
 <p id='photo_basename'></p>
 <div id="work_image"></div>
 
-<p id="crop_instructions">Indicate new crop boundary, <i>then</i> press Crop.</p>
+<p id="crop_instructions">Drag the box (or its corners) to frame the photo, <i>then</i> press Crop.
+  The box keeps a fixed <?php echo $photo_repository->name() == 'car' ? 'wide, 8 : 5' : 'tall, 3 : 4'; ?> shape.</p>
 <input type="button" value="Crop" onclick="cropPhoto(); return false;"/>
 <input type="button" value="Rotate Right" onclick="rotatePhoto(-90); return false;"/>
 <input type="button" value="Rotate Left" onclick="rotatePhoto(90); return false;"/>

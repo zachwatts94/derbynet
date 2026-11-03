@@ -5,6 +5,7 @@
 
 var g_racers = [];        // From query=racer.list
 var g_printed = {};       // racerid -> {count, last}, from query=print.status
+var g_uncropped = [];     // racerids whose headshot isn't cropped to the card's shape
 var g_selected = 0;       // racerid currently under review, or 0
 var g_sending = false;
 var g_printer_ok = false;
@@ -16,6 +17,10 @@ function has_photo(url) {
 
 function printed_count(racerid) {
   return g_printed[racerid] ? g_printed[racerid].count : 0;
+}
+
+function is_uncropped(racerid) {
+  return g_uncropped.indexOf(parseInt(racerid, 10)) >= 0;
 }
 
 function racer_by_id(racerid) {
@@ -83,6 +88,9 @@ function render_list() {
     if (!has_photo(r.headshot)) {
       who.append($('<span class="badge warn"/>').text('no headshot'));
     }
+    if (has_photo(r.headshot) && is_uncropped(r.racerid)) {
+      who.append($('<span class="badge warn"/>').text('not cropped'));
+    }
     if (!has_photo(r.car_photo)) {
       who.append($('<span class="badge warn"/>').text('no car photo'));
     }
@@ -135,6 +143,10 @@ function warnings_for(r) {
   }
   if (!has_photo(r.headshot)) {
     w.push('No headshot yet — the card will show "No photo".');
+  }
+  if (has_photo(r.headshot) && is_uncropped(r.racerid)) {
+    w.push('The headshot has not been cropped to fit the card \u2014 the card trims it from the middle, '
+           + 'which can cut off a face that is off to one side.  Use "Fix headshot" to frame it.');
   }
   if (!has_photo(r.car_photo) && current_sides() == 2) {
     w.push('No car photo yet — the back will show "No car photo".');
@@ -214,9 +226,10 @@ function load_status() {
       g_printer_ok = p.state == 'idle' || p.state == 'printing';
       state.attr('class', 'state-' + p.state).text(text);
 
-      var before = JSON.stringify(g_printed);
+      var before = JSON.stringify([g_printed, g_uncropped]);
       g_printed = data.printed || {};
-      if (JSON.stringify(g_printed) != before) {
+      g_uncropped = data.uncropped || [];
+      if (JSON.stringify([g_printed, g_uncropped]) != before) {
         render_list();
         update_review();
       }
@@ -311,6 +324,7 @@ $(function() {
   // Coming back from fixing a photo in another tab: show the result.
   $(window).on('focus', function() {
     if (g_selected && !g_sending) {
+      load_status();
       load_racers(redraw_preview);
     }
   });
