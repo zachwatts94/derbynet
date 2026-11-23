@@ -62,7 +62,7 @@ class CardLicenseDocument extends PrintableRacerDocument {
                               'default' => 'None'),
       'show_lattice' => array('type' => 'bool',
                               'desc' => 'Diamond crosshatch pattern in the background',
-                              'default' => true),
+                              'default' => false),
       'color_scheme' => array('type' => 'radio',
                               'desc' => 'Color Scheme',
                               'values' => array(array('value' => 'blue', 'desc' => 'Blue'),
