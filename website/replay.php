@@ -39,7 +39,8 @@ if (isset($_REQUEST['address'])) {
 <script type="text/javascript" src="js/message-poller.js"></script>
 <script type="text/javascript" src="js/viewer-signaling.js"></script>
 <script type="text/javascript" src="js/video-capture.js"></script>
-<script type="text/javascript" src="js/circular-frame-buffer.js"></script>
+<script type="text/javascript" src="js/circular-frame-buffer.js?v=<?php echo @filemtime('js/circular-frame-buffer.js') ?: time(); ?>"></script>
+<script type="text/javascript" src="js/webcodecs-frame-buffer.js?v=<?php echo @filemtime('js/webcodecs-frame-buffer.js') ?: time(); ?>"></script>
 <script type="text/javascript" src="js/video-device-picker.js"></script>
 <script type="text/javascript">
 
@@ -190,8 +191,16 @@ $(function() {
 
 function on_stream_ready(stream) {
   $("#waiting-for-remote").addClass('hidden');
-  g_recorder = new CircularFrameBuffer(stream, g_replay_options.length, g_buffer_capacity_ms,
-                                       g_record_fps);
+  // Above 30 fps, record with WebCodecs where the browser has it: it keeps up
+  // with 60 fps and holds a long buffer in less memory.
+  if (g_record_fps > 30 && typeof MediaStreamTrackProcessor != 'undefined' &&
+      typeof VideoFrame != 'undefined') {
+    g_recorder = new WebCodecsFrameBuffer(stream, g_replay_options.length,
+                                          g_buffer_capacity_ms, g_record_fps);
+  } else {
+    g_recorder = new CircularFrameBuffer(stream, g_replay_options.length,
+                                         g_buffer_capacity_ms, g_record_fps);
+  }
   g_recorder.start_recording();
   document.getElementById("preview").srcObject = stream;
 }
