@@ -3,8 +3,13 @@
 // length_ms is how much video a replay shows.  capacity_ms (optional, at least
 // length_ms) is how much video the buffer holds, so a replay can end well before
 // the most recent frame.
-function CircularFrameBuffer(stream, length_ms, capacity_ms) {
+function CircularFrameBuffer(stream, length_ms, capacity_ms, capture_fps) {
   console.log('CFB: length_ms = ', length_ms, 'capacity_ms = ', capacity_ms);
+  capture_fps = capture_fps || 30;
+  // Minimum time between captured frames, a little under the nominal interval.
+  const min_frame_interval_ms = 1000 / capture_fps - 1.5;
+  let captured_in_window = 0;
+  let window_start_ts = 0;
   if (!capacity_ms || capacity_ms < length_ms) {
     capacity_ms = length_ms * 2;
   }
@@ -56,6 +61,9 @@ function CircularFrameBuffer(stream, length_ms, capacity_ms) {
   let fps_div = $("#fps");
   let last_ts = 0;
   function report_fps(ts, play_or_rec) {
+    if (show_stats) {
+      return;
+    }
     let delta = ts - last_ts;
     last_ts = ts;
     if (delta != 0) {
@@ -63,6 +71,17 @@ function CircularFrameBuffer(stream, length_ms, capacity_ms) {
       fps_div.css("background-color", fps < 30 ? "red" : (fps < k_refresh_fps ? "yellow" : "white"))
         .toggleClass('hidden', fps >= k_refresh_fps)
         .text(play_or_rec + fps + " fps");
+    }
+  }
+
+  // With ?stats=1 on the replay page, show the measured capture rate (frames
+  // actually stored per second) in the corner.
+  let show_stats = /[?&]stats=1/.test(window.location.search);
+  function window_stats(elapsed_ms) {
+    if (show_stats) {
+      fps_div.removeClass('hidden').css("background-color", "white")
+        .text("cap " + Math.round(captured_in_window * 1000 / elapsed_ms) + "/" + capture_fps +
+              " fps, " + Math.round(frames.length) + " slots");
     }
   }
 
@@ -80,7 +99,8 @@ function CircularFrameBuffer(stream, length_ms, capacity_ms) {
     }
 
     // Only capture at 30fps (33.3ms per frame)
-    if (last_recorded_frame_index < 0 || ts - frame_times[last_recorded_frame_index] >= 33) {
+    if (last_recorded_frame_index < 0 ||
+        ts - frame_times[last_recorded_frame_index] >= min_frame_interval_ms) {
       // Using the offscreen <video> element as an HTMLVideoSource, capture an
       // image of the current frame into the offscreen <canvas> element.
       offscreen_context.drawImage(offscreen_video, 0, 0);
@@ -131,6 +151,12 @@ function CircularFrameBuffer(stream, length_ms, capacity_ms) {
                                            offscreen_canvas.height);
           frame_times[frame_index] = ts;
           last_recorded_frame_index = frame_index;
+          ++captured_in_window;
+          if (ts - window_start_ts >= 1000) {
+            window_stats(ts - window_start_ts);
+            captured_in_window = 0;
+            window_start_ts = ts;
+          }
         }
       } catch(error) {
         console.log("CFB " + now_msg + " caught error " + error.message +
@@ -157,8 +183,8 @@ function CircularFrameBuffer(stream, length_ms, capacity_ms) {
   }
 
   this.start_recording = function() {
-    // Frames are captured at about 30 per second; leave a little slack.
-    let slots = Math.ceil(Math.max(capacity_ms, length_ms) / 1000 * 31);
+    // Leave a little slack beyond the nominal capture rate.
+    let slots = Math.ceil(Math.max(capacity_ms, length_ms) / 1000 * (capture_fps + 1));
     frames = Array(slots);
     frame_times = Array(slots);
     frame_index = 0;

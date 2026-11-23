@@ -60,6 +60,9 @@ EXTRA=""
 if [ -n "${CAMERA:-}" ]; then
   CAM=$(printf %s "$CAMERA" | sed 's/ /%20/g')
   URL="$DERBYNET_SERVER/replay.php?address=$ADDRESS&autostart=1&camera=$CAM"
+  # REPLAY_FPS=60 records replays at 60 frames per second (default 30).
+  [ -n "${REPLAY_FPS:-}" ] && URL="$URL&fps=$REPLAY_FPS"
+  [ -n "${REPLAY_STATS:-}" ] && URL="$URL&stats=1"
   EXTRA="--use-fake-ui-for-media-stream --autoplay-policy=no-user-gesture-required"
 else
   URL="$DERBYNET_SERVER/kiosk.php?address=$ADDRESS"

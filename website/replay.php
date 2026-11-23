@@ -49,6 +49,10 @@ g_buffer_capacity_ms = <?php
   echo intval(read_raceinfo('replay-skipback', '4000')
               + max(0, floatval(read_raceinfo('replay-timer-timeout', '10')) - 3.5) * 1000); ?>;
 
+// Frames recorded per second for replays: ?fps=60 on the page address (30 by
+// default).  60 needs a camera that delivers 60 and about twice the memory.
+g_record_fps = <?php echo isset($_GET['fps']) && intval($_GET['fps']) >= 30 && intval($_GET['fps']) <= 60 ? intval($_GET['fps']) : 30; ?>;
+
 g_websocket_url = <?php echo json_encode(read_raceinfo('_websocket_url', '')); ?>;
 // If using websockets to listen for replay messages, this variable will hold
 // the websocket object.
@@ -186,7 +190,8 @@ $(function() {
 
 function on_stream_ready(stream) {
   $("#waiting-for-remote").addClass('hidden');
-  g_recorder = new CircularFrameBuffer(stream, g_replay_options.length, g_buffer_capacity_ms);
+  g_recorder = new CircularFrameBuffer(stream, g_replay_options.length, g_buffer_capacity_ms,
+                                       g_record_fps);
   g_recorder.start_recording();
   document.getElementById("preview").srcObject = stream;
 }

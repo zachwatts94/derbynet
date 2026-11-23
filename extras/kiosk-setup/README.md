@@ -30,6 +30,7 @@ Optional, replay kiosks only (applied each time the browser starts):
 
 | Setting | Meaning |
 |---|---|
+| `REPLAY_FPS=60` | Record replays at 60 frames/s instead of 30 (camera must deliver 60; needs about twice the memory: ~8 GB for the replay page, so only on a machine with 16 GB). |
 | `CAMERA_EXPOSURE=50` | Force a short manual exposure, in units of 100 µs (50 = 5 ms) to cut motion blur. Needs bright light. Unset = automatic exposure. |
 | `CAMERA_FOCUS=60` | Lock the focus (Rally accepts 0-255) so autofocus does not hunt on fast cars. Unset = automatic focus. |
 
