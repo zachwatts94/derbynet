@@ -97,7 +97,8 @@ function card_pdf_to_pngs($pdf, $dpi = 200) {
   $pngs = array();
   if (file_put_contents($dir.'/in.pdf', $pdf) !== false) {
     list($code, $out, $err) = card_run(array('gs', '-q', '-dNOPAUSE', '-dBATCH', '-dSAFER',
-                                             '-sDEVICE=png16m', '-r'.intval($dpi),
+                                             '-sDEVICE=png16m', '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4',
+                                             '-r'.intval($dpi),
                                              '-sOutputFile='.$dir.'/page-%d.png', $dir.'/in.pdf'));
     if ($code == 0) {
       for ($i = 1; is_file($dir.'/page-'.$i.'.png'); ++$i) {

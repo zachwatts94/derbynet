@@ -30,7 +30,7 @@ $pdf = card_pdf($_GET['racerid'], $sides);
 if ($pdf === false) {
   preview_failure('Could not generate the card.');
 }
-$pngs = card_pdf_to_pngs($pdf, 200);
+$pngs = card_pdf_to_pngs($pdf, 300);
 if ($pngs === false) {
   preview_failure('Could not render the card preview.');
 }
