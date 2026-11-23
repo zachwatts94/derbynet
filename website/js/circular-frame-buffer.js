@@ -157,8 +157,8 @@ function CircularFrameBuffer(stream, length_ms, capacity_ms) {
   }
 
   this.start_recording = function() {
-    // Frames are captured at about 30 per second; leave 20% slack.
-    let slots = Math.ceil(Math.max(capacity_ms, length_ms) / 1000 * 36);
+    // Frames are captured at about 30 per second; leave a little slack.
+    let slots = Math.ceil(Math.max(capacity_ms, length_ms) / 1000 * 31);
     frames = Array(slots);
     frame_times = Array(slots);
     frame_index = 0;

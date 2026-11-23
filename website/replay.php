@@ -44,10 +44,10 @@ if (isset($_REQUEST['address'])) {
 <script type="text/javascript">
 
 // How much video to keep: a replay of replay-skipback ms that ends as much as
-// (timer time-out - about 2.5 s) before the results arrive.
+// (timer time-out - about 3.5 s) before the results arrive.
 g_buffer_capacity_ms = <?php
   echo intval(read_raceinfo('replay-skipback', '4000')
-              + max(0, floatval(read_raceinfo('replay-timer-timeout', '10')) - 2.5) * 1000); ?>;
+              + max(0, floatval(read_raceinfo('replay-timer-timeout', '10')) - 3.5) * 1000); ?>;
 
 g_websocket_url = <?php echo json_encode(read_raceinfo('_websocket_url', '')); ?>;
 // If using websockets to listen for replay messages, this variable will hold
