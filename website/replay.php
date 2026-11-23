@@ -28,7 +28,7 @@ if (isset($_REQUEST['address'])) {
 }
 ?>
 <link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css"/>
-<link rel="stylesheet" type="text/css" href="css/replay.css"/>
+<link rel="stylesheet" type="text/css" href="css/replay.css?v=<?php echo @filemtime('css/replay.css') ?: time(); ?>"/>
 <script type="text/javascript" src="js/jquery.js"></script>
 <script type="text/javascript" src="js/ajax-setup.js"></script>
 <script type="text/javascript" src="js/jquery-ui.min.js"></script>
@@ -142,6 +142,13 @@ function handle_replay_message(cmdline) {
       clearTimeout(g_replay_timeout);
       console.log('Triggering replay from REPLAY message', root);
       on_replay(root);
+    }
+  } else if (cmdline.startsWith("LIVE")) {
+    // LIVE on|off [address]
+    let parts = cmdline.trim().split(/\s+/);
+    let mine = (new URLSearchParams(window.location.search).get('address') || '').toLowerCase();
+    if (parts.length < 3 || parts[2].toLowerCase() == mine) {
+      set_live_view(parts[1] == 'on');
     }
   } else if (cmdline.startsWith("CANCEL")) {
     clearTimeout(g_replay_timeout);
@@ -406,6 +413,25 @@ function start_playback(root, upload) {
     });
 }
 
+// Full-screen live view of this machine's camera, controlled from the race
+// console.  A replay plays over it and then the live view shows again.
+function set_live_view(on) {
+  let video = document.getElementById("live");
+  if (on) {
+    let stream = document.getElementById("preview").srcObject;
+    if (!stream) {
+      console.log('LIVE: no camera stream yet');
+      return;
+    }
+    video.srcObject = stream;
+    video.play().catch(function(e) { console.log('LIVE play() rejected:', e); });
+    $("#live-layer").removeClass('hidden');
+  } else {
+    $("#live-layer").addClass('hidden');
+    video.srcObject = null;
+  }
+}
+
 function on_proceed() {
   $("#interior").attr('src', $("#inner_url").val());
 
@@ -446,6 +472,10 @@ $(window).on('resize', function(event) { on_setup(); });
 
 <iframe id="interior" class="hidden full-window">
 </iframe>
+
+<div id="live-layer" class="hidden full-window">
+  <video id="live" autoplay="true" muted="true" playsinline="true"></video>
+</div>
 
 <div id="click-shield" class="hidden full-window"
      onclick="on_setup(); return false;"

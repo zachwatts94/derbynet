@@ -168,4 +168,12 @@ function send_replay_RACE_STARTS() {
   send_replay_message("RACE_STARTS $skipback $num_showings $rate");
 }
 
+
+// "LIVE on|off [address]  -- show the replay machine's camera live, full screen\r\n"
+// With an address, only the replay page loaded with that address responds.
+function send_replay_LIVE($on, $address = '') {
+  $address = preg_replace('/[^A-Za-z0-9._-]/', '', $address);
+  send_replay_message("LIVE ".($on ? "on" : "off").($address == '' ? '' : " ".$address));
+}
+
 ?>

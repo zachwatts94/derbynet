@@ -98,6 +98,15 @@ function handle_test_replay() {
            });
 }
 
+// Shows (on=1) or hides (on=0) a replay machine's camera live, full screen.
+// address names one replay machine; empty means all of them.
+function handle_live_view(on, address) {
+  $.ajax(g_action_url,
+         {type: 'POST',
+          data: {action: 'replay.live', on: on, address: address}
+         });
+}
+
 function trigger_replay() {
   $.ajax(g_action_url,
          {type: 'POST',

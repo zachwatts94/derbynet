@@ -25,7 +25,7 @@ $warn_no_timer = warn_no_timer();
 <script type="text/javascript" src="js/mobile.js"></script>
 <script type="text/javascript" src="js/dashboard-ajax.js"></script>
 <script type="text/javascript" src="js/modal.js"></script>
-<script type="text/javascript" src="js/coordinator-controls.js"></script>
+<script type="text/javascript" src="js/coordinator-controls.js?v=<?php echo @filemtime('js/coordinator-controls.js') ?: time(); ?>"></script>
 <script type="text/javascript" src="js/coordinator-poll.js"></script>
 <script type="text/javascript" src="js/timer-alive.js"></script>
 <script type="text/javascript">
@@ -144,6 +144,17 @@ input.lane-time::-webkit-outer-spin-button {
     <p><b id="replay_status">Remote replay status not yet updated</b></p>
     <div id="test_replay" class="block_buttons">
       <input type="button" value="Trigger Replay" onclick="handle_test_replay();"/>
+    </div>
+    <div id="live_view" class="block_buttons">
+      <?php
+      // Replay machines are the kiosks whose address starts with "replay".
+      foreach ($db->query("SELECT address, name FROM Kiosks WHERE address LIKE 'replay%' ORDER BY address") as $k) {
+        echo '<input type="button" value="Live: '.htmlspecialchars($k['name'] != '' ? $k['name'] : $k['address'], ENT_QUOTES, 'UTF-8')
+             .'" onclick="handle_live_view(1, \''.htmlspecialchars($k['address'], ENT_QUOTES, 'UTF-8').'\');"/>'."\n";
+      }
+      ?>
+      <input type="button" value="Live: All" onclick="handle_live_view(1, '');"/>
+      <input type="button" value="Live Off" onclick="handle_live_view(0, '');"/>
     </div>
     <div class="block_buttons">
       <input type="button" value="Replay Settings" onclick="show_replay_settings_modal();"/>
