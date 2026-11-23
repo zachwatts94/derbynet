@@ -25,23 +25,23 @@ if (!have_permission(ASSIGN_RACER_IMAGE_PERMISSION)) {
     list($state, $state_text) = card_printer_status();
     if ($state == 'offline') {
       json_failure('offline', 'The card printer is '.$state_text.'.  Nothing was sent.');
-      return;
-    }
-    card_print_jobs_ready();
-    $already = read_single_value("SELECT COUNT(*) FROM PrintJobs"
-                                 ." WHERE racerid = :racerid AND status = 'submitted'",
-                                 array(':racerid' => $racerid), 0);
-    if ($already > 0 && empty($_POST['force'])) {
-      json_out('printed_count', $already);
-      json_failure('already-printed',
-                   'A card has already been sent for this racer.  Print again only if the first one was spoiled.');
     } else {
-      list($ok, $message, $cups_id) = card_submit($racerid, $sides, $copies);
-      if ($ok) {
-        json_out('job', $cups_id);
-        json_success();
+      card_print_jobs_ready();
+      $already = read_single_value("SELECT COUNT(*) FROM PrintJobs"
+                                   ." WHERE racerid = :racerid AND status = 'submitted'",
+                                   array(':racerid' => $racerid), 0);
+      if ($already > 0 && empty($_POST['force'])) {
+        json_out('printed_count', $already);
+        json_failure('already-printed',
+                     'A card has already been sent for this racer.  Print again only if the first one was spoiled.');
       } else {
-        json_failure('print', $message);
+        list($ok, $message, $cups_id) = card_submit($racerid, $sides, $copies);
+        if ($ok) {
+          json_out('job', $cups_id);
+          json_success();
+        } else {
+          json_failure('print', $message);
+        }
       }
     }
   }
