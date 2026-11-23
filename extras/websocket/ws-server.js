@@ -5,7 +5,7 @@ const ws_port = 8010;
 const trigger_port = 8020;
 
 const WebSocket = require('ws');
-const wss = new WebSocket.Server({ port: 8010 });
+const wss = new WebSocket.Server({ port: 8010, host: "127.0.0.1" });
 
 var by_url = [];
 
@@ -153,6 +153,6 @@ tcp_server.on("error", (error) => {
   console.log(`Server Error: ${error.message}`);
 });
 
-tcp_server.listen(trigger_port, () => {
+tcp_server.listen(trigger_port, "127.0.0.1", () => {
   console.log(`TCP socket server is running on port: ${trigger_port}`);
 });
