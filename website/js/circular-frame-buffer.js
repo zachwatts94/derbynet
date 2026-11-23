@@ -1,7 +1,13 @@
 'use strict';
 
-function CircularFrameBuffer(stream, length_ms) {
-  console.log('CFB: length_ms = ', length_ms);
+// length_ms is how much video a replay shows.  capacity_ms (optional, at least
+// length_ms) is how much video the buffer holds, so a replay can end well before
+// the most recent frame.
+function CircularFrameBuffer(stream, length_ms, capacity_ms) {
+  console.log('CFB: length_ms = ', length_ms, 'capacity_ms = ', capacity_ms);
+  if (!capacity_ms || capacity_ms < length_ms) {
+    capacity_ms = length_ms * 2;
+  }
   // We expect a video refresh rate of 60 frames per second
   const k_refresh_fps = 60;
   let debugging = false;
@@ -151,8 +157,10 @@ function CircularFrameBuffer(stream, length_ms) {
   }
 
   this.start_recording = function() {
-    frames = Array(Math.ceil(length_ms / 1000 * k_refresh_fps));
-    frame_times = Array(Math.ceil(length_ms / 1000 * 60));
+    // Frames are captured at about 30 per second; leave 20% slack.
+    let slots = Math.ceil(Math.max(capacity_ms, length_ms) / 1000 * 36);
+    frames = Array(slots);
+    frame_times = Array(slots);
     frame_index = 0;
     last_recorded_frame_index = -1;
     recording = true;
@@ -175,8 +183,11 @@ function CircularFrameBuffer(stream, length_ms) {
   // on_playback_finished -- callback invoked when a playback finishes
   //    (may be called repeat times)
   // on_done -- callback to be invoked when playback completes.
+  // end_back_ms and tail_ms (optional): end the replay end_back_ms before the
+  // most recent frame, plus tail_ms.
   this.playback = function(canvas, repeat, playback_rate,
-                           on_precanvas, on_playback_finished, on_done) {
+                           on_precanvas, on_playback_finished, on_done,
+                           end_back_ms, tail_ms) {
     if (!frames) {
       console.log("No frames for playback! (" + now_msg + ")");
       if (on_done) {
@@ -213,7 +224,12 @@ function CircularFrameBuffer(stream, length_ms) {
     // frame_times[last_recorded_frame_index] is the time of the last captured frame
     // frame_times[last_recorded_frame_index] - length_ms is the time of the
     // first frame for playback
-    let start_goal = frame_times[last_recorded_frame_index] - Math.round(length_ms);
+    let last_time = frame_times[last_recorded_frame_index];
+    let anchor_time = last_time - (end_back_ms || 0);
+    let end_time = (end_back_ms > 0)
+        ? Math.min(last_time, anchor_time + (tail_ms || 0))
+        : last_time;
+    let start_goal = anchor_time - Math.round(length_ms);
     console.log("Playback from " + now_msg + ": repeat=" + repeat +
                 ", playback_rate=" + playback_rate);
     console.log("last_recorded_frame_index = " + last_recorded_frame_index);
@@ -229,7 +245,17 @@ function CircularFrameBuffer(stream, length_ms) {
       start_index = pindex;
     }
 
-    console.log("start_index = " + start_index);
+    // Index of the last frame to show.
+    let end_index = last_recorded_frame_index;
+    for (let step = 0; step < frames.length; ++step) {
+      let pindex = (last_recorded_frame_index + frames.length - step) % frames.length;
+      if (frame_times[pindex] <= end_time) {
+        end_index = pindex;
+        break;
+      }
+    }
+    console.log("start_index = " + start_index + ", end_index = " + end_index +
+                ", end_back_ms = " + end_back_ms);
 
     // During playback, pindex runs from start_index to last_recorded_frame_index, circularly,
     // inclusive, but may skip steps.
@@ -256,10 +282,10 @@ function CircularFrameBuffer(stream, length_ms) {
       let found = false;
       for (let tries = 0; tries < frames.length; ++tries) {
         if (frame_times[pindex] >= goal_frame_time) {
-          found = true;
+          found = frame_times[pindex] <= end_time;
           break;
         }
-        if (pindex == last_recorded_frame_index) {
+        if (pindex == end_index) {
           break;
         }
         pindex = (pindex + 1) % frames.length;

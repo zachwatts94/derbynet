@@ -43,6 +43,12 @@ if (isset($_REQUEST['address'])) {
 <script type="text/javascript" src="js/video-device-picker.js"></script>
 <script type="text/javascript">
 
+// How much video to keep: a replay of replay-skipback ms that ends as much as
+// (timer time-out - about 2.5 s) before the results arrive.
+g_buffer_capacity_ms = <?php
+  echo intval(read_raceinfo('replay-skipback', '4000')
+              + max(0, floatval(read_raceinfo('replay-timer-timeout', '10')) - 2.5) * 1000); ?>;
+
 g_websocket_url = <?php echo json_encode(read_raceinfo('_websocket_url', '')); ?>;
 // If using websockets to listen for replay messages, this variable will hold
 // the websocket object.
@@ -104,7 +110,9 @@ var g_recorder;
 var g_replay_options = {
   count: 2,
   rate: 50,  // expressed as a percentage
-  length: 4000  // ms
+  length: 4000,  // ms
+  end_back: 0,  // ms before now at which the replay should end
+  tail: 0  // ms past that point
 };
 
 function parse_replay_options(cmdline) {
@@ -114,6 +122,9 @@ function parse_replay_options(cmdline) {
   }
   g_replay_options.count = parseInt(cmdline.split(" ")[2]);
   g_replay_options.rate = parseInt(cmdline.split(" ")[3]);
+  // Optional: where the replay should end, relative to now (see replay.inc).
+  g_replay_options.end_back = parseInt(cmdline.split(" ")[4]) || 0;
+  g_replay_options.tail = parseInt(cmdline.split(" ")[5]) || 0;
 }
 
 // If non-zero, holds the timeout ID of a pending timeout that will trigger a
@@ -175,7 +186,7 @@ $(function() {
 
 function on_stream_ready(stream) {
   $("#waiting-for-remote").addClass('hidden');
-  g_recorder = new CircularFrameBuffer(stream, g_replay_options.length);
+  g_recorder = new CircularFrameBuffer(stream, g_replay_options.length, g_buffer_capacity_ms);
   g_recorder.start_recording();
   document.getElementById("preview").srcObject = stream;
 }
@@ -409,7 +420,9 @@ function start_playback(root, upload) {
                             $("#playback-background").hide('slide');
                             announce_to_interior('replay-ended');
                             g_recorder.start_recording();
-                          });
+                          },
+                          g_replay_options.end_back,
+                          g_replay_options.tail);
     });
 }
 

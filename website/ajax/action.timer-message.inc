@@ -154,7 +154,8 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
         echo "\n  <success/>\n";
       } else {
         if (write_heat_results($results)) {
-          send_replay_REPLAY();
+          $end_back = replay_end_back_ms($results);
+          send_replay_REPLAY($end_back, $end_back > 0 ? intval(read_raceinfo('replay-tail', '1500')) : 0);
           write_raceinfo('timer_current', '');
           $current = get_running_round();
           advance_heat($current, 'next', /* show failure */ false);

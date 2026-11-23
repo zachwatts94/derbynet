@@ -147,12 +147,43 @@ function send_replay_START(&$current) {
                       .'_Heat'.sprintf("%02d", @$current['heat']));
 }
 
-// "REPLAY skipback showings rate  -- stop recording if recording; playback\r\n"
-function send_replay_REPLAY() {
+// "REPLAY skipback showings rate end_back tail  -- stop recording if recording; playback\r\n"
+//
+// end_back_ms and tail_ms (both default 0) say where the replay should end:
+// end_back_ms milliseconds before the moment this message arrives (when the
+// last car actually crossed the finish line), plus tail_ms after that.  The
+// replay shows skipback ms leading up to that point.
+function send_replay_REPLAY($end_back_ms = 0, $tail_ms = 0) {
   $skipback = read_raceinfo('replay-skipback', '4000');
   $num_showings = read_raceinfo('replay-num-showings', '2');
   $rate = read_raceinfo('replay-rate', '50');
-  send_replay_message("REPLAY ".$skipback." ".$num_showings." ".$rate);
+  send_replay_message("REPLAY ".$skipback." ".$num_showings." ".$rate
+                      ." ".intval($end_back_ms)." ".intval($tail_ms));
+}
+
+// How long ago the last car crossed the finish line, in milliseconds, given
+// the timer's heat results ($results as from parse_heat_results).
+//
+// When every lane has a time, the timer reports as the last car finishes, so
+// the answer is 0.  When some lane did not finish, the timer reports only when
+// its time-out (replay-timer-timeout seconds, counted from the start of the
+// heat) expires, so the last car to finish crossed (timeout - its time) ago.
+function replay_end_back_ms($results) {
+  $timeout = floatval(read_raceinfo('replay-timer-timeout', '10'));
+  $slowest_finisher = 0.0;
+  $any_unfinished = false;
+  foreach ($results as $r) {
+    $t = isset($r['time']) ? floatval($r['time']) : 0.0;
+    if ($t <= 0 || $t >= 9.99) {
+      $any_unfinished = true;
+    } else {
+      $slowest_finisher = max($slowest_finisher, $t);
+    }
+  }
+  if (!$any_unfinished || $slowest_finisher <= 0 || $slowest_finisher >= $timeout) {
+    return 0;
+  }
+  return intval(round(($timeout - $slowest_finisher) * 1000));
 }
 
 // "CANCEL  -- cancel recording\r\n"
