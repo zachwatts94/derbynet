@@ -50,6 +50,30 @@ function CircularFrameBuffer(stream, length_ms, capacity_ms, capture_fps) {
   // last_recorded_frame_index, if >= 0, is the index of the most recently captured
   // frame.
   let last_recorded_frame_index = -1;
+
+  // Above 30 fps, only the most recent hi_res_ms of video (enough for a normal
+  // replay) is kept at the full capture rate.  Older frames are thinned to every
+  // other frame, which keeps the memory use of a long buffer within what a
+  // browser page is allowed.  total_seq counts the frames stored since recording
+  // started; thin_seq is the next one to consider for thinning.
+  let total_seq = 0;
+  let thin_seq = 0;
+  function thin_old_frames(now_ts) {
+    if (capture_fps <= 30) {
+      return;
+    }
+    let horizon = now_ts - (length_ms + 2000);
+    let n = frames.length;
+    if (thin_seq <= total_seq - n) {
+      thin_seq = total_seq - n + 1;  // Older frames have been overwritten.
+    }
+    while (thin_seq < total_seq - 1 && frame_times[thin_seq % n] < horizon) {
+      if (thin_seq % 2 == 1) {
+        frames[thin_seq % n] = null;
+      }
+      ++thin_seq;
+    }
+  }
   let recording = false;
 
   offscreen_video.srcObject = stream;
@@ -167,6 +191,8 @@ function CircularFrameBuffer(stream, length_ms, capacity_ms, capture_fps) {
 
       // frame_index may wrap around to 0
       frame_index = (frame_index + 1) % frames.length;
+      ++total_seq;
+      thin_old_frames(ts);
     }
 
     if (recording) {
@@ -185,10 +211,13 @@ function CircularFrameBuffer(stream, length_ms, capacity_ms, capture_fps) {
   this.start_recording = function() {
     // Leave a little slack beyond the nominal capture rate.
     let slots = Math.ceil(Math.max(capacity_ms, length_ms) / 1000 * (capture_fps + 1));
+    frames = null;  // Let the previous recording's frames be reclaimed first.
     frames = Array(slots);
     frame_times = Array(slots);
     frame_index = 0;
     last_recorded_frame_index = -1;
+    total_seq = 0;
+    thin_seq = 0;
     recording = true;
     requestAnimationFrame(recording_callback);
   }
@@ -325,7 +354,11 @@ function CircularFrameBuffer(stream, length_ms, capacity_ms, capture_fps) {
           //console.log("Found pindex = " + pindex + " at time " + frame_times[pindex] +
           //            " for goal " + goal_frame_time);
           try {
-            pre_context.putImageData(frames[pindex], 0, 0);
+            let shown = pindex;
+            for (let back = 0; back < 3 && !frames[shown]; ++back) {
+              shown = (shown + frames.length - 1) % frames.length;
+            }
+            pre_context.putImageData(frames[shown], 0, 0);
             context.drawImage(pre_canvas, draw_x, draw_y, draw_width, draw_height);
           } catch(e) {
             console.error(e);
