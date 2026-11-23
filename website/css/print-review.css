@@ -12,6 +12,7 @@ body { background: #f2f4f8; }
 #printer-state.state-idle { color: #1a7f37; }
 #printer-state.state-printing { color: #9a6700; }
 #printer-state.state-stopped,
+#printer-state.state-offline,
 #printer-state.state-unknown { color: #b42318; }
 
 #layout {

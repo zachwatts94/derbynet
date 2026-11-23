@@ -22,6 +22,11 @@ if (!have_permission(ASSIGN_RACER_IMAGE_PERMISSION)) {
                         array(':racerid' => $racerid), 0) == 0) {
     json_failure('nosuchracer', 'No such racer.');
   } else {
+    list($state, $state_text) = card_printer_status();
+    if ($state == 'offline') {
+      json_failure('offline', 'The card printer is '.$state_text.'.  Nothing was sent.');
+      return;
+    }
     card_print_jobs_ready();
     $already = read_single_value("SELECT COUNT(*) FROM PrintJobs"
                                  ." WHERE racerid = :racerid AND status = 'submitted'",

@@ -153,9 +153,28 @@ function card_submit($racerid, $sides, $copies) {
   return array($ok, $message, $cups_id);
 }
 
-// Returns array(state, text, queued): state is 'idle', 'printing', 'stopped' or
-// 'unknown'; text is CUPS's own description; queued is the number of jobs
-// waiting or printing.
+// CUPS only learns that a network printer is unreachable when it tries to send
+// a job, so check ourselves.  Returns array(reachable, where): where is
+// "host:port" of the queue's socket:// address, or '' if the queue has some
+// other kind of address (in which case the printer is assumed reachable).
+function card_printer_reachable($name) {
+  list($code, $out, $err) = card_run(array('lpstat', '-v', $name));
+  if ($code == 0 && preg_match('#socket://([^:/\s]+)(?::(\d+))?#', $out, $m)) {
+    $host = $m[1];
+    $port = isset($m[2]) && $m[2] !== '' ? intval($m[2]) : 9100;
+    $fp = @fsockopen($host, $port, $errno, $errstr, 1.0);
+    if ($fp) {
+      fclose($fp);
+      return array(true, $host.':'.$port);
+    }
+    return array(false, $host.':'.$port);
+  }
+  return array(true, '');
+}
+
+// Returns array(state, text, queued): state is 'idle', 'printing', 'offline',
+// 'stopped' or 'unknown'; text describes it (for 'offline', where it was
+// tried); queued is the number of jobs waiting or printing.
 function card_printer_status() {
   $name = card_printer_name();
   list($code, $out, $err) = card_run(array('lpstat', '-p', $name));
@@ -168,6 +187,15 @@ function card_printer_status() {
       $state = 'printing';
     } else if (strpos($text, 'disabled') !== false) {
       $state = 'stopped';
+    }
+  }
+  // A printer in the middle of a job may not accept a second connection, so
+  // only probe when CUPS thinks it is idle.
+  if ($state == 'idle') {
+    list($reachable, $where) = card_printer_reachable($name);
+    if (!$reachable) {
+      $state = 'offline';
+      $text = 'not reachable at '.$where.' (check that it is on and plugged into the network)';
     }
   }
   list($qcode, $qout, $qerr) = card_run(array('lpstat', '-o', $name));
